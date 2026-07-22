@@ -1,0 +1,201 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum InterviewStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum DifficultyLevel {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum InterviewDomain {
+  FRONTEND_DEVELOPER
+  BACKEND_DEVELOPER
+  JAVA_DEVELOPER
+  PYTHON_DEVELOPER
+  MERN_STACK
+  DATA_SCIENCE
+  MACHINE_LEARNING
+  DEVOPS
+  UI_UX
+  HR
+  MARKETING
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  firstName     String
+  lastName      String
+  role          UserRole  @default(USER)
+  avatarUrl     String?
+  isActive      Boolean   @default(true)
+  refreshToken  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  resumes       Resume[]
+  interviews    Interview[]
+  atsScores     AtsScore[]
+  history       UserHistory[]
+
+  @@map("users")
+}
+
+model Resume {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String   @default("My Resume")
+  fileName    String?
+  filePath    String?
+  fileSize    Int?
+  mimeType    String?
+  rawText     String?  @db.Text
+  parsedData  Json?
+  isPrimary   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  interviews  Interview[]
+  atsScores   AtsScore[]
+
+  @@index([userId])
+  @@map("resumes")
+}
+
+model AtsScore {
+  id                String   @id @default(cuid())
+  userId            String
+  resumeId          String
+  score             Int
+  keywords          Json?
+  missingKeywords   Json?
+  missingSections   Json?
+  suggestions       Json?
+  improvementTips   Json?
+  grammarIssues     Json?
+  formattingIssues  Json?
+  reportData        Json?
+  createdAt         DateTime @default(now())
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resume            Resume   @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([resumeId])
+  @@map("ats_scores")
+}
+
+model Interview {
+  id              String           @id @default(cuid())
+  userId          String
+  resumeId        String?
+  domain          InterviewDomain?
+  difficulty      DifficultyLevel  @default(MEDIUM)
+  durationMinutes Int              @default(20)
+  questionCount   Int              @default(10)
+  status          InterviewStatus  @default(PENDING)
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resume          Resume?          @relation(fields: [resumeId], references: [id], onDelete: SetNull)
+  questions       Question[]
+  feedback        InterviewFeedback?
+
+  @@index([userId])
+  @@index([status])
+  @@map("interviews")
+}
+
+model Question {
+  id            String   @id @default(cuid())
+  interviewId   String
+  orderIndex    Int
+  questionText  String   @db.Text
+  category      String?
+  difficulty    DifficultyLevel @default(MEDIUM)
+  createdAt     DateTime @default(now())
+
+  interview     Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  answer        Answer?
+
+  @@index([interviewId])
+  @@map("questions")
+}
+
+model Answer {
+  id              String   @id @default(cuid())
+  questionId      String   @unique
+  answerText      String   @db.Text
+  transcription   String?  @db.Text
+  analysis        Json?
+  score           Float?
+  timeTakenSec    Int?
+  createdAt       DateTime @default(now())
+
+  question        Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@map("answers")
+}
+
+model InterviewFeedback {
+  id                    String   @id @default(cuid())
+  interviewId           String   @unique
+  overallScore          Float
+  technicalScore        Float
+  communicationScore    Float
+  confidenceScore       Float
+  problemSolvingScore   Float
+  resumeMatchScore      Float
+  behavioralScore       Float
+  strengths             Json?
+  weaknesses            Json?
+  topicsToImprove       Json?
+  learningResources     Json?
+  performanceSummary    String?  @db.Text
+  cameraMetrics         Json?
+  reportData            Json?
+  createdAt             DateTime @default(now())
+
+  interview             Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+
+  @@map("interview_feedback")
+}
+
+model UserHistory {
+  id          String   @id @default(cuid())
+  userId      String
+  action      String
+  entityType  String?
+  entityId    String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("user_history")
+}
